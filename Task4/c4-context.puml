@@ -1,0 +1,26 @@
+@startuml c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.14.0/C4_Context.puml
+
+title передача ставок в кол-центры: диаграмма контекста
+
+Person(client, "клиент", "звонит, чтобы уточнить условия депозита")
+Person(operator, "оператор кол-центра")
+Person_Ext(partner_operator, "оператор партнерского кол-центра")
+Person(deposit_office, "менеджер бэк-офиса депозитов")
+
+System(abs, "АБС", "справочник ставок, сервис интеграции депозитов")
+System(callcenter, "система кол-центра", "раздел ставок для операторов")
+System(sftp, "sftp-сервер банка", "файлы с актуальными ставками для партнера")
+System_Ext(partner, "система партнерского кол-центра", "принимает только файлы")
+
+Rel(deposit_office, abs, "публикует ставки")
+Rel(abs, callcenter, "актуальные ставки", "kafka")
+Rel(abs, sftp, "файл со ставками после каждой публикации", "sftp")
+Rel(partner, sftp, "забирает новый файл по расписанию", "sftp")
+Rel(client, operator, "звонит", "телефон")
+Rel(client, partner_operator, "звонит, если кол-центр банка перегружен", "телефон")
+Rel(operator, callcenter, "смотрит ставки")
+Rel(partner_operator, partner, "смотрит ставки")
+
+SHOW_LEGEND()
+@enduml
