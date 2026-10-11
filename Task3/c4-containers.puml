@@ -1,0 +1,66 @@
+@startuml c4-containers
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.14.0/C4_Container.puml
+
+title открытие депозитов онлайн, MVP: диаграмма контейнеров
+
+Person(client, "клиент")
+Person(operator, "оператор кол-центра")
+Person(front, "сотрудник отделения")
+Person(deposit_office, "менеджер бэк-офиса депозитов")
+Person(credit_office, "сотрудник бэк-офиса кредитов")
+
+System(site, "сайт", "php, react.js")
+System(callcenter, "система кол-центра", "java spring boot, react.js, postgresql")
+System(sms_gateway, "СМС-шлюз")
+System_Ext(telecom, "телеком-оператор")
+
+System_Boundary(ib, "интернет-банк") {
+    Container(ib_web, "веб-приложение интернет-банка", "asp.net mvc 4.5, .net framework 4.5", "монолит на платформе подрядчика, экземпляры в двух ЦОД; новое: раздел депозитов, кэш справочников платежей")
+    ContainerDb(ib_db, "БД интернет-банка", "ms sql", "данные и сессии пользователей, репликация между ЦОД")
+    Container(lb, "балансировщик нагрузки", "nginx", "в обоих ЦОД, распределяет запросы к веб-приложению и сервису депозитов между серверами и ЦОД")
+    Container(deposit_svc, "сервис депозитов", "asp.net core, .net 10", "каталог депозитов, ставки и персональные ставки, заявки и их статусы")
+    ContainerDb(deposit_db, "БД депозитов", "ms sql", "копия ставок из АБС, заявки")
+    Container(sms_svc, "сервис СМС-подтверждений", "asp.net core, .net 10", "одноразовые коды без доработки ядра интернет-банка")
+    ContainerDb(sms_db, "БД СМС-подтверждений", "ms sql")
+}
+
+ContainerQueue(kafka, "kafka", "kafka", "топики заявок, ставок и статусов заявок")
+
+System_Boundary(abs, "АБС") {
+    Container(abs_client, "клиент АБС", "delphi", "новые формы: ставки, онлайн-заявки")
+    ContainerDb(abs_db, "БД АБС", "oracle, pl/sql", "логика АБС; новое: справочник ставок, персональные ставки, онлайн-заявки, исходящие события")
+    Container(abs_integration, "сервис интеграции депозитов", "java spring boot", "единственная точка обмена онлайн-каналов с АБС")
+}
+
+Rel_D(client, site, "смотрит депозиты, оставляет заявку", "https")
+Rel_D(client, lb, "интернет-банк: депозиты, заявка, код из СМС", "https")
+Rel(lb, ib_web, "запросы клиентов", "https")
+Rel_R(site, lb, "депозиты и ставки, заявка", "https, rest")
+Rel(ib_web, lb, "депозиты, персональные ставки, заявка, статус", "https, rest")
+Rel(lb, deposit_svc, "запросы к сервису депозитов", "https")
+Rel(ib_web, ib_db, "читает и пишет", "sql")
+Rel(ib_web, abs_db, "платежи и текущие счета, существующая интеграция", "sql")
+
+Rel(deposit_svc, deposit_db, "читает и пишет", "sql")
+Rel(deposit_svc, sms_svc, "отправить и проверить код", "https, rest")
+Rel(sms_svc, sms_db, "читает и пишет", "sql")
+Rel_D(sms_svc, sms_gateway, "код подтверждения")
+Rel_D(deposit_svc, kafka, "публикует заявки, читает ставки и статусы", "kafka")
+
+Rel_D(kafka, callcenter, "заявки с сайта", "kafka")
+Rel_U(operator, callcenter, "изучает заявку, звонит клиенту")
+
+Rel_D(abs_integration, kafka, "читает заявки, публикует ставки и статусы", "kafka")
+Rel(abs_integration, abs_db, "записывает заявки, читает ставки и события", "jdbc, pl/sql")
+Rel(abs_client, abs_db, "читает и пишет")
+Rel_D(deposit_office, abs_client, "ставки, обработка заявки, открытие депозита")
+Rel_D(credit_office, abs_client, "показатели кредитного риска")
+Rel_D(front, abs_client, "депозит после идентификации")
+Rel_D(abs_db, sms_gateway, "СМС о ставке и об открытии депозита")
+Rel_D(sms_gateway, telecom, "отправка СМС")
+Rel_U(telecom, client, "СМС")
+
+Lay_R(client, front)
+
+SHOW_LEGEND()
+@enduml

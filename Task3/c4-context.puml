@@ -1,0 +1,36 @@
+@startuml c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.14.0/C4_Context.puml
+
+title открытие депозитов онлайн, MVP: диаграмма контекста
+
+Person(client, "клиент", "новый клиент на сайте или клиент интернет-банка")
+Person(operator, "оператор кол-центра")
+Person(front, "сотрудник отделения", "фронт-офис")
+Person(deposit_office, "менеджер бэк-офиса депозитов")
+Person(credit_office, "сотрудник бэк-офиса кредитов")
+
+System(site, "сайт", "депозиты со ставками, заявка нового клиента")
+System(ib, "интернет-банк", "депозиты и персональные ставки, заявка с СМС-подтверждением, статус заявки")
+System(abs, "АБС", "ставки, согласование ставки по заявке, открытие депозита")
+System(callcenter, "система кол-центра", "заявки с сайта для обзвона")
+System(sms_gateway, "СМС-шлюз", "поддерживает IT-отдел банка")
+System_Ext(telecom, "телеком-оператор")
+
+Rel(client, site, "смотрит депозиты, оставляет заявку", "https")
+Rel(client, ib, "смотрит депозиты, подает заявку, видит статус", "https")
+Rel(site, ib, "получает депозиты и ставки, передает заявки", "https, rest")
+Rel(ib, callcenter, "заявки с сайта", "kafka")
+BiRel(ib, abs, "заявки; ставки, персональные ставки и статусы заявок", "kafka")
+Rel(ib, sms_gateway, "код подтверждения заявки")
+Rel(abs, sms_gateway, "СМС о ставке и об открытии депозита")
+Rel(sms_gateway, telecom, "отправка СМС")
+Rel(telecom, client, "СМС")
+
+Rel(operator, callcenter, "изучает заявку с сайта")
+Rel(operator, client, "звонит, может предложить особые условия", "телефон")
+Rel(deposit_office, abs, "ведет ставки, подтверждает ставку по заявке, открывает депозит")
+Rel(credit_office, abs, "вносит показатели кредитного риска для ставок")
+Rel(front, abs, "открывает депозит новому клиенту после идентификации")
+
+SHOW_LEGEND()
+@enduml
